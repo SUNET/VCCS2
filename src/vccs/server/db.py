@@ -7,6 +7,7 @@ from typing import Any, Dict, Mapping, Optional, Type, Union, cast
 from bson import ObjectId
 from eduid_userdb.db import BaseDB
 from loguru import logger
+from pydantic import BaseModel, Field
 from pydantic.dataclasses import dataclass
 from pymongo.errors import DuplicateKeyError
 
@@ -32,31 +33,25 @@ class CredType(str, Enum):
     REVOKED: str = 'revoked'
 
 
-class CredentialPydanticConfig:
-    # only check that obj_id is an instance of ObjectId
-    arbitrary_types_allowed = True
-
-
-@dataclass(config=CredentialPydanticConfig)
-class Credential:
+class Credential(BaseModel):
     credential_id: str
     status: Status
     type: CredType
     revision: int = 1
-    obj_id: ObjectId = field(default_factory=ObjectId)
+    obj_id: ObjectId = Field(default_factory=ObjectId, alias='_id')
+
+    class Config:
+        # only check that obj_id is an instance of ObjectId
+        arbitrary_types_allowed = True
 
     @classmethod
-    def _from_dict(cls: Type[Credential], data: Mapping[str, Any]) -> Credential:
+    def from_dict(cls: CredType[Credential], data: Mapping[str, Any]) -> Credential:
         """ Construct element from a data dict in database format. """
 
         _data = dict(data)  # to not modify callers data
         if 'credential' in _data:
             # move contents from 'credential' to top-level of dict
             _data.update(_data.pop('credential'))
-        if '_id' in _data:
-            # Not supported with pydantic dataclasses:
-            #   RuntimeWarning: fields may not start with an underscore, ignoring "_id"
-            _data['obj_id'] = _data.pop('_id')
         return cls(**_data)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -82,13 +77,9 @@ class Credential:
             'revision': 1,
         }
         """
-        data = asdict(self)
-        # Convert Enums to their values
-        for k in data.keys():
-            if isinstance(data[k], Enum):
-                data[k] = data[k].value
+        data = self.dict(by_alias=True)
         # Extract the _id and revision
-        obj_id = data.pop('obj_id')
+        obj_id = data.pop('_id')
         revision = data.pop('revision')
         return {
             '_id': obj_id,
@@ -97,8 +88,7 @@ class Credential:
         }
 
 
-@dataclass(config=CredentialPydanticConfig)
-class _PasswordCredentialRequired:
+class PasswordCredential(Credential):
     derived_key: str
     iterations: int
     kdf: KDF
@@ -107,29 +97,18 @@ class _PasswordCredentialRequired:
     version: Version
 
 
-@dataclass(config=CredentialPydanticConfig)
-class PasswordCredential(Credential, _PasswordCredentialRequired):
-
-    @classmethod
-    def from_dict(cls: Type[PasswordCredential], data: Mapping[str, Any]) -> PasswordCredential:
-        # This indirection provides the correct return type for this subclass
-        return cast(PasswordCredential, cls._from_dict(data))
-
-
-
-@dataclass
-class _RevokedCredentialRequired:
+class RevokedCredential(Credential):
     reason: str
     reference: str
 
-
-@dataclass(config=CredentialPydanticConfig)
-class RevokedCredential(Credential, _RevokedCredentialRequired):
+    class Config:
+        # only check that obj_id is an instance of ObjectId
+        arbitrary_types_allowed = True
 
     @classmethod
     def from_dict(cls: Type[RevokedCredential], data: Mapping[str, Any]) -> RevokedCredential:
         # This indirection provides the correct return type for this subclass
-        return cast(RevokedCredential, cls._from_dict(data))
+        return cast(RevokedCredential, super().from_dict(data))
 
     @classmethod
     def from_dict_backwards_compat(cls: Type[RevokedCredential], data: Mapping[str, Any]) -> RevokedCredential:
