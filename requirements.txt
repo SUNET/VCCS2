@@ -3,7 +3,7 @@ git+https://github.com/SUNET/python-pyhsm@ft-python3-support
 #pyhsm>=1.2.0
 ndnkdf>=0.3
 py-bcrypt>=0.4
-pymongo>=3.6
+eduid-userdb>=0.9.1
 # python-multipart is needed to parse form data
 python-multipart
 uvicorn
