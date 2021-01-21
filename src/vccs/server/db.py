@@ -45,7 +45,7 @@ class Credential(BaseModel):
         arbitrary_types_allowed = True
 
     @classmethod
-    def from_dict(cls: CredType[Credential], data: Mapping[str, Any]) -> Credential:
+    def from_dict(cls: Type[Credential], data: Mapping[str, Any]) -> Credential:
         """ Construct element from a data dict in database format. """
 
         _data = dict(data)  # to not modify callers data
@@ -95,6 +95,11 @@ class PasswordCredential(Credential):
     key_handle: int
     salt: str
     version: Version
+
+    @classmethod
+    def from_dict(cls: Type[PasswordCredential], data: Mapping[str, Any]) -> PasswordCredential:
+        # This indirection provides the correct return type for this subclass
+        return cast(PasswordCredential, super().from_dict(data))
 
 
 class RevokedCredential(Credential):
