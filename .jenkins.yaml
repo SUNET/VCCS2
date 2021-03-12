@@ -4,8 +4,6 @@ upstream:
   - eduid-common
   - eduid-userdb
   - python-ndnkdf
-triggers:
-  cron: "@weekly"
 slack:
   room: "eduid-builds"
 python_module: vccs
